@@ -1,0 +1,2 @@
+# Bağımlılıklar için proje kök dizinindeki requirements.txt dosyasını kullanın.
+# Kurulum: pip install -r requirements.txt  (proje kökünden çalıştırın)

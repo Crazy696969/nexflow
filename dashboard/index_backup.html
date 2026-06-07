@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexFlow - Akıllı Satış Analizi</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; }
+
+        /* ── Header ── */
+        .header { background: linear-gradient(135deg, #1e40af, #7c3aed); padding: 28px 20px; text-align: center; }
+        .header h1 { font-size: 2.2em; letter-spacing: 3px; }
+        .header p  { opacity: 0.85; margin-top: 6px; font-size: 0.95em; }
+
+        /* Motor durum göstergesi */
+        #motor-durum {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin-top: 10px; font-size: 0.78em; opacity: 0.9;
+            background: rgba(0,0,0,0.25); border-radius: 20px; padding: 4px 12px;
+        }
+        #motor-dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; transition: background 0.4s; }
+        #motor-dot.online  { background: #34d399; box-shadow: 0 0 6px #34d399; }
+        #motor-dot.offline { background: #f87171; }
+
+        /* ── Layout ── */
+        .container { max-width: 1200px; margin: 32px auto; padding: 0 20px; }
+
+        /* ── Özet kartları ── */
+        .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .card  { background: #1e293b; border-radius: 16px; padding: 22px; border: 1px solid #334155; transition: border-color 0.2s; }
+        .card:hover { border-color: #475569; }
+        .card .label { font-size: 0.8em; color: #94a3b8; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .card .value { font-size: 1.7em; font-weight: bold; color: #60a5fa; line-height: 1.1; }
+        .card .sub   { font-size: 0.82em; color: #34d399; margin-top: 7px; }
+
+        /* ── Upload alanı ── */
+        .upload-box {
+            background: #1e293b; border-radius: 16px; padding: 28px;
+            border: 2px dashed #334155; margin-bottom: 12px; text-align: center;
+            cursor: pointer; transition: border-color 0.2s, background 0.2s;
+            user-select: none;
+        }
+        .upload-box:hover, .upload-box.drag-over { border-color: #60a5fa; background: #1e3a5f; }
+        .upload-box .hint { font-size: 0.82em; color: #64748b; margin-top: 6px; }
+        #fileName { color: #60a5fa; margin-top: 8px; font-size: 0.88em; min-height: 20px; }
+        input[type=file] { display: none; }
+
+        /* ── Butonlar ── */
+        .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
+        .btn {
+            background: linear-gradient(135deg, #1e40af, #7c3aed); color: white;
+            border: none; padding: 13px 20px; border-radius: 10px; cursor: pointer;
+            font-size: 0.95em; transition: opacity 0.2s; font-weight: 500;
+        }
+        .btn:hover:not(:disabled) { opacity: 0.85; }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn-secondary {
+            background: #1e293b; color: #94a3b8;
+            border: 1px solid #334155; padding: 13px 20px;
+            border-radius: 10px; cursor: pointer; font-size: 0.95em;
+            transition: background 0.2s, color 0.2s;
+        }
+        .btn-secondary:hover { background: #334155; color: #e2e8f0; }
+
+        /* ── Grafikler ── */
+        .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 16px; }
+        .chart-box { background: #1e293b; border-radius: 16px; padding: 22px; border: 1px solid #334155; position: relative; }
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .chart-header h3 { color: #94a3b8; font-size: 0.82em; text-transform: uppercase; letter-spacing: 1px; }
+        .chart-dl-btn {
+            font-size: 0.75em; color: #64748b; background: #0f172a;
+            border: 1px solid #334155; border-radius: 6px; padding: 4px 9px;
+            cursor: pointer; transition: color 0.2s;
+        }
+        .chart-dl-btn:hover { color: #60a5fa; border-color: #60a5fa; }
+
+        /* ── Sonuç kutusu ── */
+        .result-box { background: #1e293b; border-radius: 16px; padding: 20px; border: 1px solid #334155; margin-top: 16px; }
+        .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+        .detail-item { background: #0f172a; border-radius: 10px; padding: 14px; border: 1px solid #334155; }
+        .detail-item .d-label { font-size: 0.78em; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; }
+        .detail-item .d-value { font-size: 1.15em; font-weight: bold; color: #a78bfa; margin-top: 5px; }
+
+        /* ── Şablon indirme notu ── */
+        .template-note {
+            font-size: 0.8em; color: #64748b; text-align: center;
+            margin-top: 6px; margin-bottom: 8px;
+        }
+        .template-note a { color: #60a5fa; cursor: pointer; text-decoration: underline; }
+
+        /* ── Durum mesajları ── */
+        .status { color: #34d399; font-weight: bold; }
+        .error  { color: #f87171; font-weight: bold; }
+        .warn   { color: #fbbf24; font-weight: bold; }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .cards      { grid-template-columns: repeat(2, 1fr); }
+            .charts-grid { grid-template-columns: 1fr; }
+            .btn-row    { grid-template-columns: 1fr; }
+            .detail-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 480px) {
+            .cards       { grid-template-columns: 1fr; }
+            .detail-grid { grid-template-columns: 1fr; }
+            .header h1   { font-size: 1.7em; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>⚡ NexFlow</h1>
+    <p>Akıllı E-Ticaret Analiz Platformu</p>
+    <div id="motor-durum">
+        <span id="motor-dot"></span>
+        <span id="motor-text">Motor kontrol ediliyor...</span>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- Özet kartları -->
+    <div class="cards">
+        <div class="card">
+            <div class="label">Toplam Satış</div>
+            <div class="value" id="toplam_satis">—</div>
+            <div class="sub" id="sub_kayit">Tüm dönem</div>
+        </div>
+        <div class="card">
+            <div class="label">Toplam Gelir</div>
+            <div class="value" id="toplam_gelir">—</div>
+            <div class="sub">TL bazında</div>
+        </div>
+        <div class="card">
+            <div class="label">En Çok Satan</div>
+            <div class="value" id="en_cok" style="font-size:1.15em">—</div>
+            <div class="sub">Ürün</div>
+        </div>
+        <div class="card">
+            <div class="label">Trend</div>
+            <div class="value" id="trend" style="font-size:1.15em">—</div>
+            <div class="sub">Genel yön</div>
+        </div>
+    </div>
+
+    <!-- Upload -->
+    <div class="upload-box" id="dropZone"
+         onclick="document.getElementById('csvFile').click()"
+         ondragover="onDragOver(event)"
+         ondragleave="onDragLeave(event)"
+         ondrop="onDrop(event)">
+        📂 CSV dosyanızı buraya <strong>tıklayın</strong> veya <strong>sürükleyin</strong>
+        <div class="hint">Maksimum 10 MB · UTF-8 veya Latin-1 · satis_adedi kolonu zorunlu</div>
+        <div id="fileName"></div>
+        <input type="file" id="csvFile" accept=".csv" onchange="uploadCSV(this.files[0])">
+    </div>
+
+    <div class="template-note">
+        CSV formatından emin değil misiniz?
+        <a onclick="indir_sablon()">Örnek şablonu indirin</a>
+    </div>
+
+    <div class="btn-row">
+        <button class="btn" id="uploadBtn" onclick="document.getElementById('csvFile').click()">
+            📤 CSV Yükle &amp; Analiz Et
+        </button>
+        <button class="btn" onclick="loadSampleReport()">
+            📊 Demo Raporu Göster
+        </button>
+    </div>
+
+    <!-- Grafikler -->
+    <div class="charts-grid">
+        <div class="chart-box">
+            <div class="chart-header">
+                <h3>📈 Satış Trendi</h3>
+                <button class="chart-dl-btn" onclick="downloadChart('salesChart', 'satis_trendi')">⬇ PNG</button>
+            </div>
+            <canvas id="salesChart"></canvas>
+        </div>
+        <div class="chart-box">
+            <div class="chart-header">
+                <h3>🔮 7 Günlük Tahmin</h3>
+                <button class="chart-dl-btn" onclick="downloadChart('forecastChart', 'tahmin')">⬇ PNG</button>
+            </div>
+            <canvas id="forecastChart"></canvas>
+        </div>
+        <div class="chart-box" id="gelirChartBox" style="display:none">
+            <div class="chart-header">
+                <h3>💰 Gelir Trendi</h3>
+                <button class="chart-dl-btn" onclick="downloadChart('gelirChart', 'gelir_trendi')">⬇ PNG</button>
+            </div>
+            <canvas id="gelirChart"></canvas>
+        </div>
+        <div class="chart-box" id="urunChartBox" style="display:none">
+            <div class="chart-header">
+                <h3>🏆 Ürün Dağılımı</h3>
+                <button class="chart-dl-btn" onclick="downloadChart('urunChart', 'urun_dagilimi')">⬇ PNG</button>
+            </div>
+            <canvas id="urunChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Sonuç -->
+    <div class="result-box">
+        <div id="output" style="color:#64748b;">CSV yükleyin veya demo raporu görüntüleyin...</div>
+        <div class="detail-grid" id="detailGrid"></div>
+    </div>
+
+</div><!-- /container -->
+
+<script>
+// ── Dinamik API URL ───────────────────────────────────────────────────────────
+const API_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:8081'
+    : '';
+
+// ── Chart instance havuzu ─────────────────────────────────────────────────────
+const charts = {};
+
+// ── Motor durum kontrolü (sayfa açılışında) ───────────────────────────────────
+async function checkMotor() {
+    try {
+        const r = await fetch(API_URL + '/health', { signal: AbortSignal.timeout(3000) });
+        const ok = r.ok;
+        document.getElementById('motor-dot').className   = ok ? 'online' : 'offline';
+        document.getElementById('motor-text').textContent = ok ? 'Motor çevrimiçi' : 'Motor çevrimdışı';
+    } catch {
+        document.getElementById('motor-dot').className   = 'offline';
+        document.getElementById('motor-text').textContent = 'Motor çevrimdışı';
+    }
+}
+checkMotor();
+
+// ── Sürükle-bırak ─────────────────────────────────────────────────────────────
+function onDragOver(e) {
+    e.preventDefault();
+    document.getElementById('dropZone').classList.add('drag-over');
+}
+function onDragLeave(e) {
+    document.getElementById('dropZone').classList.remove('drag-over');
+}
+function onDrop(e) {
+    e.preventDefault();
+    document.getElementById('dropZone').classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) uploadCSV(file);
+}
+
+// ── Kartları sıfırla ──────────────────────────────────────────────────────────
+function resetCards() {
+    ['toplam_satis','toplam_gelir','en_cok','trend'].forEach(id => {
+        document.getElementById(id).textContent = '—';
+    });
+    document.getElementById('sub_kayit').textContent = 'Tüm dönem';
+    document.getElementById('detailGrid').innerHTML  = '';
+    document.getElementById('gelirChartBox').style.display = 'none';
+    document.getElementById('urunChartBox').style.display  = 'none';
+}
+
+// ── CSV yükleme ───────────────────────────────────────────────────────────────
+async function uploadCSV(file) {
+    if (!file) return;
+
+    // Aynı dosya tekrar seçilebilsin
+    document.getElementById('csvFile').value = '';
+
+    // Dosya boyutu ön kontrolü (10 MB)
+    if (file.size > 10 * 1024 * 1024) {
+        setOutput('<span class="error">❌ Dosya 10 MB limitini aşıyor.</span>');
+        return;
+    }
+
+    document.getElementById('fileName').textContent = '📄 ' + file.name;
+    setOutput('⏳ Analiz yapılıyor...');
+    resetCards();
+
+    const btn = document.getElementById('uploadBtn');
+    btn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res  = await fetch(API_URL + '/upload-csv', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (!res.ok) {
+            setOutput(`<span class="error">❌ ${data.detail || 'Bilinmeyen hata'}</span>`);
+            return;
+        }
+
+        // Kartları doldur
+        document.getElementById('toplam_satis').textContent = (data.toplam_satis ?? 0).toLocaleString('tr-TR');
+        document.getElementById('toplam_gelir').textContent = data.toplam_gelir != null
+            ? '₺' + Number(data.toplam_gelir).toLocaleString('tr-TR') : '—';
+        document.getElementById('en_cok').textContent  = data.en_cok_satan_urun ?? '—';
+        document.getElementById('trend').textContent   = data.trend === 'yukselis' ? '📈 Yükseliş' : '📉 Düşüş';
+        document.getElementById('sub_kayit').textContent = `${data.toplam_kayit} kayıt`;
+
+        setOutput(`<span class="status">✅ Analiz tamamlandı! (${data.toplam_kayit} satır işlendi)</span>`);
+
+        // Satış grafiği
+        if (data.satis_serisi)
+            drawLineChart('salesChart', 'Günlük Satış', data.satis_serisi.labels, data.satis_serisi.values, '#60a5fa');
+
+        // Tahmin grafiği
+        if (data.gelecek_7_gun_tahmini)
+            drawLineChart('forecastChart', 'Tahmin', ['G+1','G+2','G+3','G+4','G+5','G+6','G+7'],
+                data.gelecek_7_gun_tahmini, '#a78bfa');
+
+        // Gelir grafiği (varsa)
+        if (data.gelir_serisi) {
+            document.getElementById('gelirChartBox').style.display = 'block';
+            drawLineChart('gelirChart', 'Günlük Gelir (₺)', data.gelir_serisi.labels, data.gelir_serisi.values, '#34d399');
+        }
+
+        // Ürün dağılımı (varsa)
+        if (data.urun_dagilimi) {
+            document.getElementById('urunChartBox').style.display = 'block';
+            drawBarChart('urunChart', data.urun_dagilimi.labels, data.urun_dagilimi.values);
+        }
+
+        // Detay kartları
+        const details = [
+            ['Ortalama Satış',  data.ortalama_satis],
+            ['En Yüksek Satış', data.en_yuksek_satis],
+            ['En Düşük Satış',  data.en_dusuk_satis],
+        ].filter(([, v]) => v != null);
+        document.getElementById('detailGrid').innerHTML = details.map(([l,v]) => detailCard(l,v)).join('');
+
+    } catch (e) {
+        setOutput(`<span class="error">❌ Motor bağlantısı kurulamadı (${API_URL})</span>
+            <br><span class="warn" style="font-size:0.83em">
+            Motoru başlatın: <code>python engine/analyze.py</code></span>`);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ── Demo modu (backend gerektirmez) ──────────────────────────────────────────
+function loadSampleReport() {
+    resetCards();
+    const demoLabels = Array.from({length: 30}, (_, i) => `2026-01-${String(i+1).padStart(2,'0')}`);
+    const demoValues = [
+        120,135,110,145,160,155,170,165,180,175,
+        190,185,200,195,210,205,220,215,230,225,
+        240,235,250,245,260,255,270,265,280,275
+    ];
+    const forecastLabels = ['G+1','G+2','G+3','G+4','G+5','G+6','G+7'];
+    const forecastValues = [287, 295, 303, 311, 319, 327, 335];
+    const urunLabels = ['Ayakkabı', 'T-Shirt', 'Çanta', 'Şapka'];
+    const urunValues = [1250, 980, 640, 320];
+
+    const toplam = demoValues.reduce((a,b) => a+b, 0);
+    document.getElementById('toplam_satis').textContent = toplam.toLocaleString('tr-TR');
+    document.getElementById('toplam_gelir').textContent = '₺' + (toplam * 50).toLocaleString('tr-TR');
+    document.getElementById('en_cok').textContent  = 'Ayakkabı';
+    document.getElementById('trend').textContent   = '📈 Yükseliş';
+    document.getElementById('sub_kayit').textContent = '30 kayıt (demo)';
+
+    drawLineChart('salesChart',   'Geçmiş Satışlar', demoLabels,   demoValues,   '#60a5fa');
+    drawLineChart('forecastChart', 'Tahmin',          forecastLabels, forecastValues, '#a78bfa');
+
+    document.getElementById('urunChartBox').style.display = 'block';
+    drawBarChart('urunChart', urunLabels, urunValues);
+
+    const avg = Math.round(forecastValues.reduce((a,b)=>a+b)/forecastValues.length);
+    document.getElementById('detailGrid').innerHTML =
+        detailCard('Ortalama Tahmin', avg) +
+        detailCard('En Yüksek',       Math.max(...forecastValues)) +
+        detailCard('En Düşük',        Math.min(...forecastValues));
+
+    setOutput('<span class="status">✅ Demo raporu yüklendi!</span> <span style="color:#64748b;font-size:0.85em">(Gerçek veri için CSV yükleyin)</span>');
+}
+
+// ── Çizim fonksiyonları ───────────────────────────────────────────────────────
+function drawLineChart(canvasId, label, labels, values, color) {
+    if (charts[canvasId]) charts[canvasId].destroy();
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    charts[canvasId] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label, data: values,
+                borderColor: color, backgroundColor: color + '22',
+                borderWidth: 2, fill: true, tension: 0.4,
+                pointRadius: 3, pointBackgroundColor: color
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { labels: { color: '#94a3b8', font: { size: 12 } } } },
+            scales: {
+                x: { ticks: { color: '#64748b', maxRotation: 45, font: { size: 10 } }, grid: { color: '#1e293b' } },
+                y: { ticks: { color: '#64748b', font: { size: 10 } },                  grid: { color: '#334155' } }
+            }
+        }
+    });
+}
+
+function drawBarChart(canvasId, labels, values) {
+    if (charts[canvasId]) charts[canvasId].destroy();
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    const colors = ['#60a5fa','#a78bfa','#34d399','#fbbf24','#f87171','#38bdf8'];
+    charts[canvasId] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Toplam Satış',
+                data: values,
+                backgroundColor: labels.map((_, i) => colors[i % colors.length] + 'bb'),
+                borderColor:     labels.map((_, i) => colors[i % colors.length]),
+                borderWidth: 1, borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { color: '#64748b', font: { size: 11 } }, grid: { display: false } },
+                y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#334155' } }
+            }
+        }
+    });
+}
+
+// ── Grafik PNG indir ──────────────────────────────────────────────────────────
+function downloadChart(canvasId, name) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const a = document.createElement('a');
+    a.href     = canvas.toDataURL('image/png');
+    a.download = `nexflow_${name}_${new Date().toISOString().slice(0,10)}.png`;
+    a.click();
+}
+
+// ── CSV şablon indir ──────────────────────────────────────────────────────────
+function indir_sablon() {
+    const rows = [
+        'tarih,urun,satis_adedi,gelir',
+        '2026-01-01,Ürün A,45,2250',
+        '2026-01-02,Ürün B,30,1500',
+        '2026-01-03,Ürün A,52,2600',
+    ].join('\n');
+    const blob = new Blob(['\uFEFF' + rows], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = 'nexflow_sablon.csv';
+    a.click();
+}
+
+// ── Yardımcılar ───────────────────────────────────────────────────────────────
+function setOutput(html) {
+    document.getElementById('output').innerHTML = html;
+}
+
+function detailCard(label, value) {
+    return `<div class="detail-item">
+                <div class="d-label">${label}</div>
+                <div class="d-value">${Number(value).toLocaleString('tr-TR')}</div>
+            </div>`;
+}
+</script>
+</body>
+</html>

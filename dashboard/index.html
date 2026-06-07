@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>NexFlow | Akıllı E-Ticaret Analiz Platformu</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; transition: all 0.2s ease; }
+        body { background: #0f0f1a; color: #e0e0e0; padding: 20px; }
+        body.light-theme { background: #f5f7fa; color: #1a1a2e; }
+        body.light-theme .card { background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        body.light-theme .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        body.light-theme .motor-status { background: #e8f5e9; color: #2e7d32; }
+        body.light-theme .btn-primary { background: #667eea; }
+        body.light-theme .btn-primary:hover { background: #5a67d8; }
+        body.light-theme .upload-area { background: white; }
+        body.light-theme .chart-card { background: white; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 20px; padding: 25px 30px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+        .logo h1 { font-size: 28px; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .logo p { font-size: 12px; opacity: 0.7; margin-top: 5px; }
+        .motor-status { background: #1a1a2e; padding: 10px 20px; border-radius: 50px; display: flex; align-items: center; gap: 10px; font-size: 14px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #4caf50; box-shadow: 0 0 5px #4caf50; animation: pulse 2s infinite; }
+        .status-dot.offline { background: #f44336; box-shadow: none; animation: none; }
+        @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1); } }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: #1a1a2e; border-radius: 16px; padding: 20px; text-align: center; }
+        .card h3 { font-size: 14px; opacity: 0.7; margin-bottom: 10px; }
+        .card .value { font-size: 32px; font-weight: bold; margin-bottom: 5px; }
+        .card .unit { font-size: 12px; opacity: 0.6; }
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 25px; margin-bottom: 30px; }
+        .chart-card { background: #1a1a2e; border-radius: 16px; padding: 20px; }
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+        .chart-header h3 { font-size: 18px; }
+        .btn-png { background: #2c3e8f; color: white; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+        .btn-png:hover { background: #1e2f6e; }
+        canvas { max-height: 300px; width: 100% !important; }
+        .upload-area { background: #1a1a2e; border-radius: 16px; padding: 30px; text-align: center; margin-bottom: 30px; border: 2px dashed #2c3e8f; cursor: pointer; }
+        .upload-area.drag-over { border-color: #667eea; background: #16213e; }
+        .btn-primary { background: #2c3e8f; color: white; border: none; padding: 12px 30px; border-radius: 50px; cursor: pointer; font-size: 16px; margin: 10px; }
+        .btn-primary:hover { background: #1e2f6e; }
+        .btn-secondary { background: #4a4a6a; }
+        .btn-secondary:hover { background: #3a3a5a; }
+        .file-input { display: none; }
+        .sample-link { color: #667eea; cursor: pointer; text-decoration: underline; margin-top: 15px; display: inline-block; }
+        .message { margin-top: 15px; padding: 10px; border-radius: 8px; display: none; }
+        .message.success { background: #2e7d32; display: block; }
+        .message.error { background: #c62828; display: block; }
+        .filter-area { display: flex; gap: 15px; justify-content: center; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-area input { padding: 8px 12px; border-radius: 8px; border: 1px solid #2c3e8f; background: #0f0f1a; color: #e0e0e0; }
+        body.light-theme .filter-area input { background: white; color: #1a1a2e; }
+        @media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: repeat(2, 1fr); } .header { flex-direction: column; text-align: center; } }
+        .theme-toggle { position: fixed; bottom: 20px; right: 20px; background: #2c3e8f; color: white; border: none; border-radius: 50px; padding: 12px 20px; cursor: pointer; font-size: 14px; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+        .theme-toggle:hover { background: #1e2f6e; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">🌙 Koyu Tema</button>
+    <div class="container">
+        <div class="header">
+            <div class="logo"><h1>⚡ NexFlow</h1><p>Akıllı E-Ticaret Analiz Platformu</p></div>
+            <div class="motor-status" id="motorStatus"><div class="status-dot" id="statusDot"></div><span id="statusText">Motor kontrol ediliyor...</span></div>
+        </div>
+        <div class="stats-grid" id="statsGrid">
+            <div class="card"><h3>Toplam Satış</h3><div class="value" id="toplamSatis">-</div><div class="unit">adet</div></div>
+            <div class="card"><h3>Toplam Kayıt</h3><div class="value" id="toplamKayit">-</div><div class="unit">satır</div></div>
+            <div class="card"><h3>Ortalama Satış</h3><div class="value" id="ortalamaSatis">-</div><div class="unit">adet/gün</div></div>
+            <div class="card"><h3>En Yüksek Satış</h3><div class="value" id="enYuksek">-</div><div class="unit">adet</div></div>
+            <div class="card"><h3>En Düşük Satış</h3><div class="value" id="enDusuk">-</div><div class="unit">adet</div></div>
+            <div class="card" id="gelirKarti" style="display:none;"><h3>Toplam Gelir</h3><div class="value" id="toplamGelir">-</div><div class="unit">₺</div></div>
+            <div class="card" id="urunKarti" style="display:none;"><h3>En Çok Satan</h3><div class="value" id="enCokSatan">-</div><div class="unit">Ürün</div></div>
+            <div class="card"><h3>Trend</h3><div class="value" id="trend">-</div><div class="unit">Genel yön</div></div>
+        </div>
+        
+        <!-- TARİH FİLTRE ALANI (YENİ) -->
+        <div class="filter-area">
+            <label>📅 Başlangıç:</label>
+            <input type="date" id="baslangicTarihi">
+            <label>📅 Bitiş:</label>
+            <input type="date" id="bitisTarihi">
+            <button class="btn-primary" onclick="applyDateFilter()" style="padding: 8px 20px;">🔍 Filtrele</button>
+        </div>
+        
+        <div class="upload-area" id="uploadArea" onclick="document.getElementById("fileInput").click()">
+            <p>📂 CSV veya Excel dosyasını yüklemek için tıklayın veya sürükleyin</p>
+            <p style="font-size: 12px; opacity: 0.6; margin-top: 10px;">Desteklenen formatlar: .csv, .xlsx, .xls</p>
+            <span class="sample-link" onclick="event.stopPropagation(); downloadTemplate()">📥 Örnek şablonu indirin</span>
+            <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display:none">
+            <div>
+                <button class="btn-primary" id="uploadBtn" onclick="event.stopPropagation(); uploadFile()">📤 CSV Yükle & Analiz Et</button>
+                <button class="btn-primary btn-secondary" id="demoBtn" onclick="event.stopPropagation(); loadDemo()">📊 Demo Raporu Göster</button>
+            </div>
+            <div id="message" class="message"></div>
+        </div>
+        
+        <div class="charts-grid">
+            <div class="chart-card"><div class="chart-header"><h3>📈 Satış Trendi</h3><button class="btn-png" onclick="downloadChart("satisChart", "satis_trendi")">⬇ PNG</button></div><canvas id="satisChart"></canvas></div>
+            <div class="chart-card"><div class="chart-header"><h3>🔮 7 Günlük Tahmin</h3><button class="btn-png" onclick="downloadChart("tahminChart", "7gun_tahmini")">⬇ PNG</button></div><canvas id="tahminChart"></canvas></div>
+            <div class="chart-card" id="gelirChartCard" style="display:none;"><div class="chart-header"><h3>💰 Gelir Trendi</h3><button class="btn-png" onclick="downloadChart("gelirChart", "gelir_trendi")">⬇ PNG</button></div><canvas id="gelirChart"></canvas></div>
+            <div class="chart-card" id="urunChartCard" style="display:none;"><div class="chart-header"><h3>🏆 Ürün Dağılımı</h3><button class="btn-png" onclick="downloadChart("urunChart", "urun_dagilimi")">⬇ PNG</button></div><canvas id="urunChart"></canvas></div>
+        </div>
+    </div>
+    <script>
+        let satisChart, tahminChart, gelirChart, urunChart, geciciVeri = null;
+        let API_URL = "";
+        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") { API_URL = "http://localhost:8081"; }
+        else if (window.location.hostname.includes("render.com") || window.location.hostname.includes("herokuapp.com")) { API_URL = ""; }
+        else { API_URL = "http://localhost:8081"; }
+        
+        document.addEventListener("DOMContentLoaded", () => { checkMotorStatus(); setupDragAndDrop(); setupFileInput(); loadDemo(); loadSavedTheme(); });
+        
+        function loadSavedTheme() { const savedTheme = localStorage.getItem("theme"); if (savedTheme === "light") { document.body.classList.add("light-theme"); document.querySelector(".theme-toggle").innerHTML = "☀️ Açık Tema"; } }
+        function toggleTheme() { const body = document.body; const btn = document.querySelector(".theme-toggle"); if (body.classList.contains("light-theme")) { body.classList.remove("light-theme"); btn.innerHTML = "🌙 Koyu Tema"; localStorage.setItem("theme", "dark"); } else { body.classList.add("light-theme"); btn.innerHTML = "☀️ Açık Tema"; localStorage.setItem("theme", "light"); } }
+        
+        function setupDragAndDrop() { const area = document.getElementById("uploadArea"); area.addEventListener("dragover", (e) => { e.preventDefault(); area.classList.add("drag-over"); }); area.addEventListener("dragleave", () => { area.classList.remove("drag-over"); }); area.addEventListener("drop", (e) => { e.preventDefault(); area.classList.remove("drag-over"); const file = e.dataTransfer.files[0]; if (file) handleFile(file); }); }
+        function setupFileInput() { document.getElementById("fileInput").addEventListener("change", (e) => { if (e.target.files[0]) handleFile(e.target.files[0]); }); }
+        function handleFile(file) { const formData = new FormData(); formData.append("file", file); uploadToAPI(formData); }
+        
+        async function uploadFile() { const fileInput = document.getElementById("fileInput"); if (!fileInput.files[0]) { showMessage("Lütfen bir dosya seçin", "error"); return; } const formData = new FormData(); formData.append("file", fileInput.files[0]); uploadToAPI(formData); fileInput.value = ""; }
+        
+        async function uploadToAPI(formData) {
+            const btn = document.getElementById("uploadBtn"); btn.disabled = true; btn.textContent = "📤 Analiz ediliyor..."; showMessage("Dosya yükleniyor...", "success");
+            try { const response = await fetch(`${API_URL}/upload-csv`, { method: "POST", body: formData }); if (!response.ok) { const error = await response.json(); throw new Error(error.detail || "Yükleme hatası"); } const data = await response.json(); geciciVeri = data; updateDashboard(data); showMessage(`✅ Analiz tamamlandı! (${data.toplam_kayit} satır işlendi)`, "success"); } 
+            catch (error) { showMessage(`❌ Hata: ${error.message}`, "error"); } finally { btn.disabled = false; btn.textContent = "📤 CSV Yükle & Analiz Et"; }
+        }
+        
+        // TARİH FİLTRELEME FONKSİYONU (YENİ)
+        function applyDateFilter() {
+            if (!geciciVeri) { showMessage("Önce bir dosya yükleyin!", "error"); return; }
+            const baslangic = document.getElementById("baslangicTarihi").value;
+            const bitis = document.getElementById("bitisTarihi").value;
+            if (!baslangic && !bitis) { updateDashboard(geciciVeri); return; }
+            // Demo verisi için tarih filtresi simülasyonu
+            let filtrelenmisVeri = JSON.parse(JSON.stringify(geciciVeri));
+            if (filtrelenmisVeri.satis_serisi && filtrelenmisVeri.satis_serisi.labels) {
+                let indices = [];
+                for (let i = 0; i < filtrelenmisVeri.satis_serisi.labels.length; i++) {
+                    let label = filtrelenmisVeri.satis_serisi.labels[i];
+                    if (baslangic && label < baslangic) continue;
+                    if (bitis && label > bitis) continue;
+                    indices.push(i);
+                }
+                if (indices.length > 0) {
+                    filtrelenmisVeri.satis_serisi.labels = indices.map(i => filtrelenmisVeri.satis_serisi.labels[i]);
+                    filtrelenmisVeri.satis_serisi.values = indices.map(i => filtrelenmisVeri.satis_serisi.values[i]);
+                    filtrelenmisVeri.toplam_kayit = filtrelenmisVeri.satis_serisi.values.length;
+                    filtrelenmisVeri.toplam_satis = filtrelenmisVeri.satis_serisi.values.reduce((a,b) => a + b, 0);
+                    filtrelenmisVeri.ortalama_satis = filtrelenmisVeri.toplam_satis / filtrelenmisVeri.toplam_kayit;
+                    filtrelenmisVeri.en_yuksek_satis = Math.max(...filtrelenmisVeri.satis_serisi.values);
+                    filtrelenmisVeri.en_dusuk_satis = Math.min(...filtrelenmisVeri.satis_serisi.values);
+                    if (filtrelenmisVeri.gelir_serisi && filtrelenmisVeri.gelir_serisi.values) {
+                        filtrelenmisVeri.gelir_serisi.labels = indices.map(i => filtrelenmisVeri.gelir_serisi.labels[i]);
+                        filtrelenmisVeri.gelir_serisi.values = indices.map(i => filtrelenmisVeri.gelir_serisi.values[i]);
+                        filtrelenmisVeri.toplam_gelir = filtrelenmisVeri.gelir_serisi.values.reduce((a,b) => a + b, 0);
+                    }
+                    updateDashboard(filtrelenmisVeri);
+                    showMessage(`📅 Filtre uygulandı: ${indices.length} gün gösteriliyor`, "success");
+                } else { showMessage("Bu tarih aralığında veri yok!", "error"); }
+            } else { updateDashboard(geciciVeri); }
+        }
+        
+        async function checkMotorStatus() { const dot = document.getElementById("statusDot"); const text = document.getElementById("statusText"); try { const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 3000); const response = await fetch(`${API_URL}/health`, { signal: controller.signal }); clearTimeout(timeoutId); if (response.ok) { dot.classList.remove("offline"); text.textContent = "Motor çevrimiçi"; } else { throw new Error("Motor çevrimdışı"); } } catch (error) { dot.classList.add("offline"); text.textContent = "Motor çevrimdışı (backend çalışmıyor)"; } }
+        
+        function updateDashboard(data) { document.getElementById("toplamSatis").innerText = data.toplam_satis || 0; document.getElementById("toplamKayit").innerText = data.toplam_kayit || 0; document.getElementById("ortalamaSatis").innerText = data.ortalama_satis || 0; document.getElementById("enYuksek").innerText = data.en_yuksek_satis || 0; document.getElementById("enDusuk").innerText = data.en_dusuk_satis || 0; const trend = data.trend === "yukselis" ? "📈 Yükseliş" : "📉 Düşüş"; document.getElementById("trend").innerText = trend; if (data.toplam_gelir !== undefined) { document.getElementById("gelirKarti").style.display = "block"; document.getElementById("toplamGelir").innerText = `₺${data.toplam_gelir.toLocaleString()}`; } if (data.en_cok_satan_urun) { document.getElementById("urunKarti").style.display = "block"; document.getElementById("enCokSatan").innerText = data.en_cok_satan_urun; } drawSatisChart(data.satis_serisi.labels, data.satis_serisi.values); drawTahminChart(data.gelecek_7_gun_tahmini); if (data.gelir_serisi && data.gelir_serisi.values) { document.getElementById("gelirChartCard").style.display = "block"; drawGelirChart(data.gelir_serisi.labels, data.gelir_serisi.values); } if (data.urun_dagilimi && data.urun_dagilimi.labels) { document.getElementById("urunChartCard").style.display = "block"; drawUrunChart(data.urun_dagilimi.labels, data.urun_dagilimi.values); } }
+        
+        function drawSatisChart(labels, values) { if (satisChart) satisChart.destroy(); const ctx = document.getElementById("satisChart").getContext("2d"); satisChart = new Chart(ctx, { type: "line", data: { labels: labels, datasets: [{ label: "Satış Adedi", data: values, borderColor: "#667eea", backgroundColor: "rgba(102,126,234,0.1)", fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: true } }); }
+        function drawTahminChart(tahminler) { if (tahminChart) tahminChart.destroy(); const labels = ["1.gün", "2.gün", "3.gün", "4.gün", "5.gün", "6.gün", "7.gün"]; const ctx = document.getElementById("tahminChart").getContext("2d"); tahminChart = new Chart(ctx, { type: "bar", data: { labels: labels, datasets: [{ label: "Tahmini Satış", data: tahminler, backgroundColor: "#764ba2", borderRadius: 8 }] }, options: { responsive: true, maintainAspectRatio: true } }); }
+        function drawGelirChart(labels, values) { if (gelirChart) gelirChart.destroy(); const ctx = document.getElementById("gelirChart").getContext("2d"); gelirChart = new Chart(ctx, { type: "line", data: { labels: labels, datasets: [{ label: "Gelir (₺)", data: values, borderColor: "#4caf50", backgroundColor: "rgba(76,175,80,0.1)", fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: true } }); }
+        function drawUrunChart(labels, values) { if (urunChart) urunChart.destroy(); const ctx = document.getElementById("urunChart").getContext("2d"); urunChart = new Chart(ctx, { type: "bar", data: { labels: labels, datasets: [{ label: "Satış Adedi", data: values, backgroundColor: "#ff6d00", borderRadius: 8 }] }, options: { responsive: true, maintainAspectRatio: true } }); }
+        function downloadChart(chartId, filename) { const canvas = document.getElementById(chartId); const link = document.createElement("a"); link.download = `nexflow_${filename}_${new Date().toISOString().slice(0,19)}.png`; link.href = canvas.toDataURL(); link.click(); }
+        function downloadTemplate() { const csvContent = "tarih,urun,satis_adedi,gelir\\n2026-01-01,Ürün A,45,2250\\n2026-01-02,Ürün B,30,1500\\n2026-01-03,Ürün A,52,2600\\n2026-01-04,Ürün C,38,1900\\n2026-01-05,Ürün B,41,2050"; const blob = new Blob([csvContent], { type: "text/csv" }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "nexflow_sablon.csv"; link.click(); URL.revokeObjectURL(link.href); }
+        function resetCards() { const elements = ["toplamSatis", "toplamKayit", "ortalamaSatis", "enYuksek", "enDusuk", "toplamGelir", "enCokSatan", "trend"]; elements.forEach(id => { const el = document.getElementById(id); if (el) el.innerText = "-"; }); document.getElementById("gelirKarti").style.display = "none"; document.getElementById("urunKarti").style.display = "none"; document.getElementById("gelirChartCard").style.display = "none"; document.getElementById("urunChartCard").style.display = "none"; }
+        function showMessage(msg, type) { const msgDiv = document.getElementById("message"); msgDiv.textContent = msg; msgDiv.className = `message ${type}`; setTimeout(() => { msgDiv.style.display = "none"; msgDiv.className = "message"; }, 3000); }
+        async function loadDemo() { resetCards(); const demoData = { toplam_kayit: 10, toplam_satis: 523, ortalama_satis: 52.3, en_yuksek_satis: 110, en_dusuk_satis: 30, trend: "yukselis", satis_serisi: { labels: ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08", "2026-01-09", "2026-01-10"], values: [45, 52, 48, 61, 55, 72, 68, 85, 78, 110] }, gelecek_7_gun_tahmini: [118, 122, 125, 128, 130, 132, 135], toplam_gelir: 23450, ortalama_gelir: 2345, gelir_serisi: { labels: ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08", "2026-01-09", "2026-01-10"], values: [2250, 2600, 2400, 3050, 2750, 3600, 3400, 4250, 3900, 5500] }, en_cok_satan_urun: "Ürün A", urun_dagilimi: { labels: ["Ürün A", "Ürün B", "Ürün C", "Ürün D"], values: [312, 245, 198, 167] } }; geciciVeri = demoData; updateDashboard(demoData); showMessage("✅ Demo modu aktif (backend bağlantısı gerekmez)", "success"); }
+    </script>
+</body>
+</html>
