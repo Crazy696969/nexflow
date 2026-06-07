@@ -2,8 +2,7 @@ import pandas as pd
 import numpy as np
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse, FileResponse
 from sklearn.linear_model import LinearRegression
 import io
 import os
@@ -11,10 +10,16 @@ from pathlib import Path
 
 app = FastAPI(title="NexFlow API", version="3.0")
 
-# CORS ayarları (frontend'den istek kabul etmek için)
+# CORS ayarları - FRONTEND İÇİN DÜZELTİLDİ
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "*",  # Herkese açık (geliştirme için)
+        "https://nexflow-ui.onrender.com",
+        "https://nexflow-lxmq.onrender.com",
+        "http://localhost:3000",
+        "http://localhost:8081"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -23,7 +28,6 @@ app.add_middleware(
 @app.get("/")
 async def root():
     """Ana sayfa - index.html'yi döndür"""
-    from fastapi.responses import FileResponse
     dashboard_path = Path(__file__).parent.parent / "dashboard" / "index.html"
     if dashboard_path.exists():
         return FileResponse(dashboard_path)
@@ -42,6 +46,8 @@ def safe_float(value):
 @app.post("/upload-csv")
 async def upload_file(file: UploadFile = File(...)):
     try:
+        print(f"Dosya alındı: {file.filename}")
+        
         # 1. Dosya boyutu kontrolü (10 MB)
         contents = await file.read()
         if len(contents) > 10 * 1024 * 1024:
@@ -69,6 +75,9 @@ async def upload_file(file: UploadFile = File(...)):
                         df = pd.read_csv(io.BytesIO(contents), encoding='cp1254')
         except Exception as e:
             raise HTTPException(400, f"Dosya okunamadı: {str(e)}")
+        
+        print(f"Kolonlar: {list(df.columns)}")
+        print(f"Satır sayısı: {len(df)}")
         
         # 4. Zorunlu kolon kontrolü
         if 'satis_adedi' not in df.columns:
@@ -175,6 +184,7 @@ async def upload_file(file: UploadFile = File(...)):
                 }
             })
         
+        print("Analiz başarıyla tamamlandı!")
         return JSONResponse(content=response)
         
     except HTTPException:
