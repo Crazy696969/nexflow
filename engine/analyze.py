@@ -3,24 +3,30 @@ import numpy as np
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sklearn.linear_model import LinearRegression
 import io
 import os
-from datetime import datetime, timedelta
+from pathlib import Path
 
 app = FastAPI(title="NexFlow API", version="3.0")
 
 # CORS ayarları (frontend'den istek kabul etmek için)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Geliştirme için herkese açık
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.get("/")
-def root():
+async def root():
+    """Ana sayfa - index.html'yi döndür"""
+    from fastapi.responses import FileResponse
+    dashboard_path = Path(__file__).parent.parent / "dashboard" / "index.html"
+    if dashboard_path.exists():
+        return FileResponse(dashboard_path)
     return {"name": "NexFlow API", "version": "3.0", "status": "active"}
 
 @app.get("/health")
@@ -54,7 +60,6 @@ async def upload_file(file: UploadFile = File(...)):
             if is_excel:
                 df = pd.read_excel(io.BytesIO(contents), engine='openpyxl')
             else:
-                # CSV için encoding dene
                 try:
                     df = pd.read_csv(io.BytesIO(contents), encoding='utf-8')
                 except UnicodeDecodeError:
