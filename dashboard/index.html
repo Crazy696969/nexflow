@@ -104,9 +104,9 @@
     <script>
         let satisChart, tahminChart, gelirChart, urunChart, geciciVeri = null;
         let API_URL = "";
-        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") { API_URL = "http://localhost:8081"; }
+        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") { API_URL = "https://nexflow-lxmq.onrender.com"; }
         else if (window.location.hostname.includes("render.com") || window.location.hostname.includes("herokuapp.com")) { API_URL = ""; }
-        else { API_URL = "http://localhost:8081"; }
+        else { API_URL = "https://nexflow-lxmq.onrender.com"; }
         
         document.addEventListener("DOMContentLoaded", () => { checkMotorStatus(); setupDragAndDrop(); setupFileInput(); loadDemo(); loadSavedTheme(); });
         
